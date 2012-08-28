@@ -1,7 +1,10 @@
 package pb;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.util.Map;
 
 import org.apache.velocity.VelocityContext;
@@ -9,6 +12,7 @@ import org.apache.velocity.VelocityContext;
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
+import com.google.common.io.Closeables;
 import com.google.common.io.Files;
 import com.google.common.io.LineProcessor;
 import com.google.gson.JsonArray;
@@ -31,7 +35,7 @@ public class Transform extends VeloAware {
 		super("");
 	}
 
-	public void run(String inFile, final String outDir) {
+	public void run(String inFile, final String outDir, final PrintWriter bad) {
 
 		try {
 			Files.readLines(new File(inFile), Charsets.UTF_8,
@@ -91,9 +95,10 @@ public class Transform extends VeloAware {
 											"permalink_url").getAsString();
 									media = "[tube]" + permaLinkUrl + "[/tube]";
 								} else {
-									System.err
-											.println("*VIDEO UNKNOWN TYPE SKIP #"
-													+ count + " " + obj);
+									String unknown = "*VIDEO UNKNOWN TYPE SKIP #"
+											+ count + " " + obj;
+									System.err.println(unknown);
+									bad.println(unknown);
 									skip = true;
 								}
 							} else {
@@ -101,8 +106,6 @@ public class Transform extends VeloAware {
 										.getAsJsonArray();
 								int pics = photos.size();
 								for (int pic = 0; pic < pics; pic++) {
-									System.out.println("#PHOTOS " + count + " "
-											+ photos.size());
 									JsonObject original = photos.get(pic)
 											.getAsJsonObject()
 											.get("original_size")
@@ -120,7 +123,6 @@ public class Transform extends VeloAware {
 								}
 							}
 							ctx.put(key, media);
-							// System.out.println(ctx);
 							if (!skip) {
 								VelocityContext vctx = new VelocityContext(ctx);
 								String name = outDir + File.separator
@@ -131,13 +133,28 @@ public class Transform extends VeloAware {
 							count++;
 						}
 					});
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+			e.printStackTrace(bad);
 		}
 	}
 
 	public static void main(String[] args) {
 		Transform t = new Transform();
-		t.run("out/blog.txt", "php");
+		PrintWriter badBoys = null; // new StringWriter();
+		boolean goOn = true;
+		try {
+			badBoys = new PrintWriter(new OutputStreamWriter(
+					new FileOutputStream(new File("out/bad.txt")),
+					VeloAware.ENC));
+		} catch (Exception e) {
+			e.printStackTrace();
+			goOn = false;
+		}
+
+		if (goOn) {
+			t.run("out/blog.txt", "php", badBoys);
+		}
+		Closeables.closeQuietly(badBoys);
 	}
 }

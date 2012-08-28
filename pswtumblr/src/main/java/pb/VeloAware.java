@@ -16,7 +16,6 @@ import com.google.common.io.Closeables;
 
 public class VeloAware {
 	protected static final String ENC = "UTF-8";
-	private Writer out = null;
 
 	protected VeloAware(String fileName) {
 		Properties props = new Properties();
@@ -49,8 +48,6 @@ public class VeloAware {
 			System.out.println(w);
 		}
 		Closeables.closeQuietly(w);
-		// w.flush();
-
 	}
 
 }
