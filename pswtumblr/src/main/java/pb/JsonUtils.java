@@ -63,7 +63,9 @@ public class JsonUtils {
 	public static List<String> toList(JsonArray array) {
 		List<String> ret = Lists.newArrayListWithCapacity(array.size());
 		for (int i = 0; i < array.size(); i++) {
-			ret.add(array.get(i).toString());
+			String value = array.get(i).toString();
+			value = value.substring(1, value.length() - 1);
+			ret.add(value.trim());
 		}
 		return ret;
 	}

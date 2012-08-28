@@ -24,6 +24,9 @@ import com.google.gson.JsonParser;
  */
 public class Transform extends VeloAware {
 
+	private static int VIDEO_W = 320;
+	private static int VIDEO_H = 240;
+
 	public Transform() {
 		super("");
 	}
@@ -51,6 +54,8 @@ public class Transform extends VeloAware {
 						// $slug $id $media $caption $tags $date
 						public void process(JsonObject obj) {
 							Map<String, String> ctx = Maps.newHashMap();
+							boolean skip = false;
+
 							String key = "id";
 							ctx.put(key, obj.get(key).getAsString()); // Long
 							key = "slug";
@@ -74,37 +79,55 @@ public class Transform extends VeloAware {
 									String videoUrl = obj.get("video_url")
 											.getAsString();
 
-									media = "<video controls=\"controls\" width=\"320\" height=\"240\"><source src=\""
+									media = "<video controls=\"controls\" width=\""
+											+ VIDEO_W
+											+ "\" height=\""
+											+ VIDEO_H
+											+ "\"><source src=\""
 											+ videoUrl
-											+ "\" type=\"video/mp4\" > Your browser does not support the video tag.</video>";
+											+ "\" type=\"video/mp4\" >Your browser does not support the video tag.</video>";
 								} else if (obj.has("permalink_url")) {
 									String permaLinkUrl = obj.get(
 											"permalink_url").getAsString();
 									media = "[tube]" + permaLinkUrl + "[/tube]";
 								} else {
-									System.out.println("*VIDEO UNKNOWN TYPE");
+									System.err
+											.println("*VIDEO UNKNOWN TYPE SKIP #"
+													+ count + " " + obj);
+									skip = true;
 								}
 							} else {
 								JsonArray photos = obj.get("photos")
 										.getAsJsonArray();
-								JsonObject original = photos.get(0)
-										.getAsJsonObject().get("original_size")
-										.getAsJsonObject();
+								int pics = photos.size();
+								for (int pic = 0; pic < pics; pic++) {
+									System.out.println("#PHOTOS " + count + " "
+											+ photos.size());
+									JsonObject original = photos.get(pic)
+											.getAsJsonObject()
+											.get("original_size")
+											.getAsJsonObject();
 
-								String purl = original.get("url").getAsString();
-								int w = original.get("width").getAsInt();
-								int h = original.get("height").getAsInt();
-								// <img src="smiley.gif" alt="Smiley face"
-								// height="42" width="42" />
-								media = "<img src=\"" + purl + "\" height=\""
-										+ h + "\" width=\"" + w + "\" />";
+									String purl = original.get("url")
+											.getAsString();
+									int w = original.get("width").getAsInt();
+									int h = original.get("height").getAsInt();
+									// <img src="smiley.gif" alt="Smiley face"
+									// height="42" width="42" />
+									media += "<img src=\"" + purl
+											+ "\" height=\"" + h
+											+ "\" width=\"" + w + "\" />";
+								}
 							}
 							ctx.put(key, media);
 							// System.out.println(ctx);
-							VelocityContext vctx = new VelocityContext(ctx);
-							String name = outDir + File.separator
-									+ JsonUtils.paddedInt(count, 5) + ".php";
-							runVelo("post_contents.vm", vctx, name);
+							if (!skip) {
+								VelocityContext vctx = new VelocityContext(ctx);
+								String name = outDir + File.separator
+										+ JsonUtils.paddedInt(count, 5)
+										+ ".php";
+								runVelo("post_contents.vm", vctx, name);
+							}
 							count++;
 						}
 					});
@@ -115,6 +138,6 @@ public class Transform extends VeloAware {
 
 	public static void main(String[] args) {
 		Transform t = new Transform();
-		t.run("out/short.txt", "php");
+		t.run("out/blog.txt", "php");
 	}
 }
