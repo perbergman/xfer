@@ -1,16 +1,26 @@
 package pb;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
 import org.junit.Test;
 
 public class PullTest {
 
-	private static String annaUrl = "http://api.tumblr.com/v2/blog/pinkspiderweb.tumblr.com/{0}?api_key=D1DvsHgqW7HPufGprUH9DsrsT3g5EDBTu0g20F8Oow92VBewvg{1}";
-	private static String perUrl = "http://api.tumblr.com/v2/blog/nondualist.tumblr.com/{0}?api_key=D1DvsHgqW7HPufGprUH9DsrsT3g5EDBTu0g20F8Oow92VBewvg{1}";
-
 	@Test
 	public void test01() {
 		Pull p = new Pull();
-		p.run(annaUrl, 100, false);
+		Properties urls = new Properties();
+		try {
+			InputStream is = new FileInputStream("app.properties");
+			urls.load(is);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		String url = urls.getProperty("url2");
+		p.run(url, 100, false);
 	}
 
 }
