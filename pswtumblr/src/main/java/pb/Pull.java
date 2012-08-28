@@ -1,30 +1,21 @@
 package pb;
 
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.common.base.Charsets;
+import com.google.common.io.Files;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.stream.JsonReader;
 
 public class Pull {
-
-	private static String annaUrl = "http://api.tumblr.com/v2/blog/pinkspiderweb.tumblr.com/{0}?api_key=D1DvsHgqW7HPufGprUH9DsrsT3g5EDBTu0g20F8Oow92VBewvg{1}";
-	private static String perUrl = "http://api.tumblr.com/v2/blog/nondualist.tumblr.com/{0}?api_key=D1DvsHgqW7HPufGprUH9DsrsT3g5EDBTu0g20F8Oow92VBewvg{1}";
 
 	private Method getMethod = null;
 
@@ -37,42 +28,8 @@ public class Pull {
 		}
 	}
 
-	public String pretty(JsonElement je) {
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		String jsonOutput = gson.toJson(je);
-		return jsonOutput;
-	}
-
-	private JsonElement parse(Reader rdr) {
-		return new JsonParser().parse(new JsonReader(rdr));
-	}
-
-	public JsonElement load(String value) {
-		return this.parse(new StringReader(value));
-	}
-
-	public JsonElement load(String url, String type, String args) {
-		JsonElement ret = null;
-
-		String query = MessageFormat.format(url, type, args);
-		// System.out.println(query);
-		DefaultHttpClient httpclient = new DefaultHttpClient();
-		HttpGet httpGet = new HttpGet(query);
-
-		HttpResponse response = null;
-		try {
-			response = httpclient.execute(httpGet);
-			// System.out.println(response.getStatusLine());
-			HttpEntity entity = response.getEntity();
-			ret = this.parse(new InputStreamReader(entity.getContent()));
-			EntityUtils.consume(entity);
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			httpGet.releaseConnection();
-		}
-
-		return ret;
+	private String tumblrURL(String url, String type, String args) {
+		return MessageFormat.format(url, type, args);
 	}
 
 	/**
@@ -97,9 +54,22 @@ public class Pull {
 		return current.getAsJsonObject().get(last);
 	}
 
-	public void run(String blog, boolean isPretty) {
-		JsonElement info = load(blog, "info", "");
-		System.out.println("LOADED " + pretty(info));
+	public void run(String blog, int max, boolean isPretty) {
+		JsonElement info = JsonUtils.loadURL(this.tumblrURL(blog, "info", ""));
+
+		if (max < 1) {
+			max = Integer.MAX_VALUE;
+		}
+
+		BufferedWriter wr = null;
+		// Writer wr = new PrintWriter(System.out);
+		try {
+			wr = Files.newWriter(new File("out/blog.txt"), Charsets.UTF_8);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		System.out.println("LOADED " + JsonUtils.pretty(info));
 
 		int postCount = jpath(info, Arrays.asList("response", "blog", "posts"))
 				.getAsInt();
@@ -107,22 +77,35 @@ public class Pull {
 
 		int offset = 0;
 		int got = -1;
-		JsonElement posts = null;
+		int total = 0;
+		JsonElement reply = null;
 		do {
-			posts = load(blog, "posts", "&limit=" + 20 + "&offset=" + offset);
-			got = jpath(posts, Arrays.asList("response", "posts"))
-					.getAsJsonArray().size();
+			reply = JsonUtils.loadURL(this.tumblrURL(blog, "posts", "&limit=" + 20
+					+ "&offset=" + offset));
+			JsonArray posts = jpath(reply, Arrays.asList("response", "posts"))
+					.getAsJsonArray();
+			got = posts.size();
 			System.out.println("OFFSET " + offset + " GOT " + got);
 			offset += got;
-			if (isPretty) {
-				System.out.println(pretty(posts));
+			for (int i = 0; i < got; i++) {
+				System.out.println(++total + " " + posts.get(i));
+				try {
+					wr.write(posts.get(i).toString());
+					wr.write('\n');
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
-		} while (got > 0);
-	}
 
-	public static void main(String[] args) {
-		Pull p = new Pull();
-		p.run(perUrl, false);
+			if (isPretty) {
+				System.out.println(JsonUtils.pretty(posts));
+			}
+		} while (got > 0 && offset < max);
+		try {
+			wr.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
-
 }
