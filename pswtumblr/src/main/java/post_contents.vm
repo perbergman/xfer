@@ -2,8 +2,8 @@ $my_post = array(
 'post_title' => '$slug ($id)',
 'post_content' => '$media $caption',
 'post_status' => 'publish',
-'post_author' => 1,
-'post_category' => array(5),
+'post_author' => $auth,
+'post_category' => array($cat),
 'tags_input' => '$tags',
 'post_date' => '$date'
 );

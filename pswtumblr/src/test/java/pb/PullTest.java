@@ -19,7 +19,7 @@ public class PullTest {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		String url = urls.getProperty("url2");
+		String url = urls.getProperty("url1");
 		p.run(url, 100, false);
 	}
 

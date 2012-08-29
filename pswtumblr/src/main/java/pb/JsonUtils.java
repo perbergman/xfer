@@ -64,7 +64,7 @@ public class JsonUtils {
 		List<String> ret = Lists.newArrayListWithCapacity(array.size());
 		for (int i = 0; i < array.size(); i++) {
 			String value = array.get(i).toString();
-			value = value.substring(1, value.length() - 1);
+			value = value.substring(1, value.length() - 1); // delete quotes
 			ret.add(value.trim());
 		}
 		return ret;

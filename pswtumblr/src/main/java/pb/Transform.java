@@ -30,12 +30,15 @@ public class Transform extends VeloAware {
 
 	private static int VIDEO_W = 320;
 	private static int VIDEO_H = 240;
+	private static String AUTH = "1";
+	private static String NORMAL_CAT = "5";
+	private static String SUSPECT_CAT = "250";
 
 	public Transform() {
-		super("");
 	}
 
-	public void run(String inFile, final String outDir, final PrintWriter bad) {
+	public void run(String inFile, final String outDir, final PrintWriter bad,
+			final String auth, final String normalCat, final String suspectCat) {
 
 		try {
 			Files.readLines(new File(inFile), Charsets.UTF_8,
@@ -55,10 +58,13 @@ public class Transform extends VeloAware {
 							return true;
 						}
 
-						// $slug $id $media $caption $tags $date
+						// $auth $cat $slug $id $media $caption $tags $date
 						public void process(JsonObject obj) {
 							Map<String, String> ctx = Maps.newHashMap();
 							boolean skip = false;
+
+							ctx.put("auth", auth);
+							ctx.put("cat", normalCat);
 
 							String key = "id";
 							ctx.put(key, obj.get(key).getAsString()); // Long
@@ -99,7 +105,9 @@ public class Transform extends VeloAware {
 											+ count + " " + obj;
 									System.err.println(unknown);
 									bad.println(unknown);
-									skip = true;
+									ctx.put("cat", suspectCat);
+									media = "<p>unknown media url for " + count
+											+ " </p>";
 								}
 							} else {
 								JsonArray photos = obj.get("photos")
@@ -115,8 +123,7 @@ public class Transform extends VeloAware {
 											.getAsString();
 									int w = original.get("width").getAsInt();
 									int h = original.get("height").getAsInt();
-									// <img src="smiley.gif" alt="Smiley face"
-									// height="42" width="42" />
+
 									media += "<img src=\"" + purl
 											+ "\" height=\"" + h
 											+ "\" width=\"" + w + "\" />";
@@ -153,7 +160,7 @@ public class Transform extends VeloAware {
 		}
 
 		if (goOn) {
-			t.run("out/blog.txt", "php", badBoys);
+			t.run("out/blog.txt", "php", badBoys, AUTH, NORMAL_CAT, SUSPECT_CAT);
 		}
 		Closeables.closeQuietly(badBoys);
 	}

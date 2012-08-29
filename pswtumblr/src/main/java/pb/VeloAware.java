@@ -17,7 +17,7 @@ import com.google.common.io.Closeables;
 public class VeloAware {
 	protected static final String ENC = "UTF-8";
 
-	protected VeloAware(String fileName) {
+	protected VeloAware() {
 		Properties props = new Properties();
 		// props.setProperty("resource.loader", "classpath, file");
 		props.setProperty("resource.loader", "classpath");
