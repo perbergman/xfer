@@ -20,7 +20,7 @@ public class PullTest {
 			e.printStackTrace();
 		}
 		String url = urls.getProperty("url1");
-		p.run(url, 100, false);
+		p.run(url, -100, false);
 	}
 
 }

@@ -11,6 +11,7 @@ import org.apache.velocity.VelocityContext;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
@@ -34,7 +35,52 @@ public class Transform extends VeloAware {
 	private static String NORMAL_CAT = "5";
 	private static String SUSPECT_CAT = "250";
 
+	final private Map<String, String> titleMap = Maps.newHashMap();
+
 	public Transform() {
+	}
+
+	public void loadTitles(String csvFile) {
+		try {
+			titleMap.putAll(Files.readLines(new File(csvFile), Charsets.UTF_8,
+					new LineProcessor<Map<String, String>>() {
+
+						private Map<String, String> titles = Maps.newHashMap();
+						private int count = 1;
+
+						@Override
+						public Map<String, String> getResult() {
+							return titles;
+						}
+
+						@Override
+						public boolean processLine(String csvLine)
+								throws IOException {
+							String[] parts = csvLine.split(",");
+							System.out.println(count + " HAS " + parts[4]);
+							titleMap.put("" + (count), parts[4]);
+							count++;
+							return true;
+						}
+					}));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	protected boolean safePut(Map<String, String> ctx, String key,
+			JsonObject obj, int counter, PrintWriter errors) {
+		if (obj.has(key)) {
+			ctx.put(key, obj.get(key).getAsString());
+		} else {
+			String fail = "safePut key " + key + ", counter " + counter
+					+ ", obj" + obj;
+			System.err.println(fail);
+			errors.println(fail);
+			ctx.put(key, "");
+			return false;
+		}
+		return true;
 	}
 
 	public void run(String inFile, final String outDir, final PrintWriter bad,
@@ -62,20 +108,40 @@ public class Transform extends VeloAware {
 						public void process(JsonObject obj) {
 							Map<String, String> ctx = Maps.newHashMap();
 							boolean skip = false;
+							boolean fail = false;
+
+							ctx.put("index", "" + count);
 
 							ctx.put("auth", auth);
 							ctx.put("cat", normalCat);
 
 							String key = "id";
-							ctx.put(key, obj.get(key).getAsString()); // Long
-							key = "slug";
-							ctx.put(key, obj.get(key).getAsString());
+							fail = safePut(ctx, key, obj, count, bad); // Long
+
+							// key = "slug";
+							// fail = safePut(ctx, key, obj, count, bad);
+							String slug = obj.get("slug").getAsString();
+
+							String mappedTitle = titleMap.get("" + count);
+							if (Strings.isNullOrEmpty(mappedTitle)
+									|| mappedTitle.equals("?")) {
+								mappedTitle = slug;
+							}
+
+							ctx.put("title", mappedTitle);
+
 							key = "type";
-							ctx.put(key, obj.get(key).getAsString());
+							fail = safePut(ctx, key, obj, count, bad);
+
 							key = "date";
-							ctx.put(key, obj.get(key).getAsString());
-							key = "caption";
-							ctx.put(key, obj.get(key).getAsString());
+							fail = safePut(ctx, key, obj, count, bad);
+
+							key = "caption"; // optional for 'text'
+							if (obj.has(key)) {
+								fail = safePut(ctx, key, obj, count, bad);
+							} else {
+								ctx.put(key, "");
+							}
 
 							JsonArray tags = obj.get("tags").getAsJsonArray();
 							key = "tags";
@@ -84,7 +150,8 @@ public class Transform extends VeloAware {
 
 							key = "media";
 							String media = "";
-							if (obj.get("type").getAsString().equals("video")) {
+							String objType = obj.get("type").getAsString();
+							if (objType.equals("video")) {
 								if (obj.has("video_url")) {
 									String videoUrl = obj.get("video_url")
 											.getAsString();
@@ -101,15 +168,17 @@ public class Transform extends VeloAware {
 											"permalink_url").getAsString();
 									media = "[tube]" + permaLinkUrl + "[/tube]";
 								} else {
-									String unknown = "*VIDEO UNKNOWN TYPE SKIP #"
-											+ count + " " + obj;
+									String unknown = count
+											+ "* SKIP UNKNOWN VIDEO TYPE "
+											+ obj;
 									System.err.println(unknown);
 									bad.println(unknown);
 									ctx.put("cat", suspectCat);
 									media = "<p>unknown media url for " + count
 											+ " </p>";
+									skip = true;
 								}
-							} else {
+							} else if (objType.equals("photo")) {
 								JsonArray photos = obj.get("photos")
 										.getAsJsonArray();
 								int pics = photos.size();
@@ -128,6 +197,18 @@ public class Transform extends VeloAware {
 											+ "\" height=\"" + h
 											+ "\" width=\"" + w + "\" />";
 								}
+							} else if (objType.equals("text")) {
+								// String title =
+								// obj.get("title").getAsString();
+								// ctx.put("slug", title);
+								media = obj.get("body").getAsString();
+
+							} else {
+								String unknown = count + "* CAN'T HANDLE TYPE "
+										+ objType + " of " + obj;
+								System.err.println(unknown);
+								bad.println(unknown);
+								skip = true;
 							}
 							ctx.put(key, media);
 							if (!skip) {
@@ -142,12 +223,12 @@ public class Transform extends VeloAware {
 					});
 		} catch (Exception e) {
 			e.printStackTrace();
-			e.printStackTrace(bad);
 		}
 	}
 
 	public static void main(String[] args) {
 		Transform t = new Transform();
+		t.loadTitles("out/titles.csv");
 		PrintWriter badBoys = null; // new StringWriter();
 		boolean goOn = true;
 		try {
